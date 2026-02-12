@@ -21,7 +21,7 @@ const pageTitle = document.getElementById('page-title');
 document.addEventListener('DOMContentLoaded', () => {
     fetchStatus();
     fetchStats();
-    
+
     // Polling
     setInterval(fetchStatus, 2000);
     setInterval(fetchStats, 5000);
@@ -40,12 +40,12 @@ navItems.forEach(item => {
         // Active handling
         navItems.forEach(n => n.classList.remove('active'));
         item.classList.add('active');
-        
+
         // Page switching
         const target = item.dataset.target;
         pages.forEach(p => p.classList.remove('active'));
         document.getElementById(target).classList.add('active');
-        
+
         pageTitle.textContent = item.textContent;
 
         if (target === 'emails') fetchEmails();
@@ -69,7 +69,7 @@ async function fetchStats() {
     try {
         const res = await fetch(`${API_URL}/stats`);
         const data = await res.json();
-        
+
         document.getElementById('stat-emails').textContent = data.total_emails;
         document.getElementById('stat-actions').textContent = data.total_actions;
         document.getElementById('stat-retries').textContent = data.pending_retries;
@@ -111,7 +111,7 @@ async function toggleAgent() {
 // Rendering
 function updateStatus(isRunning, uptime) {
     currentState.isRunning = isRunning;
-    
+
     if (isRunning) {
         statusText.textContent = `Running (${formatUptime(uptime)})`;
         statusIndicator.classList.add('running');
@@ -123,7 +123,7 @@ function updateStatus(isRunning, uptime) {
         toggleBtn.textContent = "Start Agent";
         toggleBtn.classList.replace('secondary', 'primary');
     }
-    
+
     document.getElementById('stat-uptime').textContent = formatUptime(uptime);
 }
 
@@ -142,7 +142,7 @@ function renderEmails(emails) {
             <td>#${e.id}</td>
             <td>${e.subject.substring(0, 40)}...</td>
             <td>${e.sender}</td>
-            <td><span class="tag ${getPriorityClass(e.priority_score)}">${e.priority_label || 'Unknown'}</span></td>
+
             <td>${e.task_status}</td>
             <td>${e.next_action}</td>
         </tr>
@@ -165,8 +165,4 @@ function renderLogs(logs) {
     `).join('');
 }
 
-function getPriorityClass(score) {
-    if (score >= 80) return 'high';
-    if (score >= 50) return 'medium';
-    return 'low';
-}
+
