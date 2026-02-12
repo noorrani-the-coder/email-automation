@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Agent Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>Email Agent</h2>
+            </div>
+            <nav>
+                <ul>
+                    <li class="active" data-target="dashboard">Dashboard</li>
+                    <li data-target="emails">Emails</li>
+                    <li data-target="logs">Logs</li>
+                </ul>
+            </nav>
+            <div class="status-panel">
+                <div class="status-indicator" id="status-indicator"></div>
+                <span id="status-text">Stopped</span>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header>
+                <div class="header-left">
+                    <h1 id="page-title">Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <button id="toggle-btn" class="btn primary">Start Agent</button>
+                    <button id="refresh-btn" class="btn secondary">Refresh</button>
+                </div>
+            </header>
+
+            <section id="dashboard" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Total Emails</h3>
+                        <p id="stat-emails">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Actions Taken</h3>
+                        <p id="stat-actions">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Pending Retries</h3>
+                        <p id="stat-retries">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Uptime</h3>
+                        <p id="stat-uptime">0s</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="emails" class="page">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Subject</th>
+                                <th>Sender</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="emails-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="logs" class="page">
+                <div class="logs-container" id="logs-list">
+                    <!-- Populated by JS -->
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
