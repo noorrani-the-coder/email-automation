@@ -5,6 +5,7 @@ __pycache__
 .Python
 env/
 venv/
+.venv/
 pip-log.txt
 pip-delete-this-directory.txt
 .tox/
@@ -20,5 +21,8 @@ coverage.xml
 .pytest_cache
 .hypotheses
 .env
+credentials.json
+token.json
+.DS_Store
 .idea
 .vscode

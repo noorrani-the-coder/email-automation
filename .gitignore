@@ -1,0 +1,16 @@
+# Environment files
+.env
+.env.*
+
+# Credentials
+credentials.json
+token.json
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
