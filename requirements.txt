@@ -8,3 +8,4 @@ numpy
 openai
 python-dotenv
 sqlalchemy
+mysql-connector-python

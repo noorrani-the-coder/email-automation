@@ -5,10 +5,49 @@ from sqlalchemy.orm import sessionmaker
 
 from db.models import Base
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT_DIR / "db" / "email_memory.sqlite"
+import os
+from dotenv import load_dotenv
 
-engine = create_engine(f"sqlite:///{DB_PATH}")
+load_dotenv()
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+
+# Check for RDS configuration
+DB_HOST = os.getenv("DB_HOST")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
+DB_PORT = os.getenv("DB_PORT", "3306")
+DB_SSL_CA = os.getenv("DB_SSL_CA")
+
+if DB_HOST:
+    # Construct AWS RDS URL
+    # Format: mysql+mysqlconnector://user:password@host:port/dbname
+    
+    # Ensure SSL CA path is absolute if provided
+    connect_args = {}
+    if DB_SSL_CA:
+        if not os.path.isabs(DB_SSL_CA):
+            DB_SSL_CA = str(ROOT_DIR / DB_SSL_CA)
+        connect_args["ssl_ca"] = DB_SSL_CA
+        connect_args["ssl_disabled"] = False
+
+    DATABASE_URL = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args=connect_args,
+        pool_recycle=3600,
+    )
+    print(f"Connected to RDS: {DB_HOST}")
+
+else:
+    # Fallback to local SQLite
+    DB_PATH = ROOT_DIR / "db" / "email_memory.sqlite"
+    DATABASE_URL = f"sqlite:///{DB_PATH}"
+    engine = create_engine(DATABASE_URL)
+    print(f"Connected to local SQLite: {DB_PATH}")
+
 SessionLocal = sessionmaker(bind=engine)
 
 
@@ -40,6 +79,9 @@ def _ensure_columns() -> None:
     Input: None
     Output: None
     """
+    if engine.dialect.name != "sqlite":
+        return
+
     with engine.begin() as conn:
         rows = conn.execute(text("PRAGMA table_info(email_memory)")).fetchall()
         existing = {row[1] for row in rows}
