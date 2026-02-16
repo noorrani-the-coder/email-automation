@@ -1,4 +1,66 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+
+
+def _normalize_event_time(value):
+    """
+    Normalizes a user/model-provided time into a Google Calendar-compatible value.
+
+    Returns: ("dateTime", "<ISO datetime>") or ("date", "YYYY-MM-DD"), otherwise None.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return ("dateTime", value.isoformat())
+
+    if isinstance(value, date):
+        return ("date", value.isoformat())
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    lowered = text.lower()
+    today = datetime.now(tz=timezone.utc).date()
+    if "today" in lowered:
+        return ("date", today.isoformat())
+    if "tomorrow" in lowered:
+        return ("date", (today + timedelta(days=1)).isoformat())
+    if "yesterday" in lowered:
+        return ("date", (today - timedelta(days=1)).isoformat())
+
+    # Date-only input (YYYY-MM-DD)
+    try:
+        parsed_date = date.fromisoformat(text)
+        return ("date", parsed_date.isoformat())
+    except Exception:
+        pass
+
+    # Datetime input (ISO 8601)
+    try:
+        parsed_dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed_dt.tzinfo is None:
+            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+        return ("dateTime", parsed_dt.isoformat())
+    except Exception:
+        return None
+
+
+def _compute_end_time(start_kind, start_value, provided_end):
+    normalized_end = _normalize_event_time(provided_end)
+    if normalized_end:
+        end_kind, end_value = normalized_end
+        if start_kind == end_kind:
+            return end_kind, end_value
+
+    if start_kind == "date":
+        start_date = date.fromisoformat(start_value)
+        return "date", (start_date + timedelta(days=1)).isoformat()
+
+    start_dt = datetime.fromisoformat(start_value.replace("Z", "+00:00"))
+    return "dateTime", (start_dt + timedelta(hours=1)).isoformat()
 
 def create_calendar_event(service, event_details):
     """
@@ -17,29 +79,30 @@ def create_calendar_event(service, event_details):
             print("Error: start_time is required for calendar events.")
             return None
 
-        # Parse end_time or default to +1 hour
-        if "end_time" in event_details:
-            end_time = event_details["end_time"]
-        else:
-            try:
-                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                end_dt = start_dt + timedelta(hours=1)
-                end_time = end_dt.isoformat()
-            except Exception:
-                end_time = start_time # Fallback if parsing fails
+        normalized_start = _normalize_event_time(start_time)
+        if not normalized_start:
+            print(f"Error: invalid start_time for calendar event: {start_time!r}")
+            return None
+
+        start_kind, normalized_start_value = normalized_start
+        end_kind, normalized_end_value = _compute_end_time(
+            start_kind,
+            normalized_start_value,
+            event_details.get("end_time"),
+        )
+
+        start_payload = {start_kind: normalized_start_value}
+        end_payload = {end_kind: normalized_end_value}
+        if start_kind == "dateTime":
+            start_payload["timeZone"] = "UTC"
+            end_payload["timeZone"] = "UTC"
 
         event = {
             'summary': summary,
             'location': location,
             'description': description,
-            'start': {
-                'dateTime': start_time,
-                'timeZone': 'UTC',
-            },
-            'end': {
-                'dateTime': end_time,
-                'timeZone': 'UTC',
-            },
+            'start': start_payload,
+            'end': end_payload,
             'reminders': {
                 'useDefault': True,
             },

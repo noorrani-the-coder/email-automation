@@ -9,7 +9,7 @@ from agent.decision import generate_reply_with_status
 from agent.persist import store_action_state
 from gmail.drafts import create_gmail_draft
 from google_calendar.events import create_calendar_event
-from db.models import TaskQueue
+from db.models import EmailMemory, TaskQueue
 from db.session import get_session, init_db
 
 ALLOWED_ACTIONS = {
@@ -107,6 +107,22 @@ def _enqueue_task(observed: dict[str, Any], reason: str) -> None:
 
 from email.utils import parseaddr
 
+
+def _has_existing_reply_draft(observed: dict[str, Any]) -> bool:
+    """
+    Returns True if a reply draft is already persisted for this email id.
+    """
+    init_db()
+    session = get_session()
+    try:
+        email_id = observed.get("email_id") or observed.get("id") or ""
+        if not email_id:
+            return False
+        row = session.query(EmailMemory).filter_by(email_id=email_id).first()
+        return bool(row and str(row.reply_draft or "").strip())
+    finally:
+        session.close()
+
 def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], service: Any = None, cal_service: Any = None) -> tuple[dict[str, Any], bool, str]:
     """
     Executes the next action based on the analysis of the observed email.
@@ -201,6 +217,7 @@ def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], serv
         draft, draft_ok = generate_reply_with_status(observed, analysis)
         if not draft_ok:
             return result, False, str(draft.get("Reasoning", "draft unavailable"))
+        draft_already_exists = _has_existing_reply_draft(observed)
         draft_json = json.dumps(draft, ensure_ascii=True)
         store_action_state(
             observed,
@@ -211,7 +228,7 @@ def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], serv
             needs_human_review=False,
             reply_json=draft_json,
         )
-        if service:
+        if service and not draft_already_exists:
             create_gmail_draft(service, observed, draft.get("DraftReply", ""))
         
         result["Draft"] = draft
@@ -267,8 +284,9 @@ def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], serv
         draft, draft_ok = generate_reply_with_status(observed, analysis)
         draft_json = None
         if draft_ok:
+            draft_already_exists = _has_existing_reply_draft(observed)
             draft_json = json.dumps(draft, ensure_ascii=True)
-            if service:
+            if service and not draft_already_exists:
                 create_gmail_draft(service, observed, draft.get("DraftReply", ""))
             result["Draft"] = draft
 

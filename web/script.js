@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000";
+const API_URL = "98.88.40.128";
 
 // State
 let currentState = {

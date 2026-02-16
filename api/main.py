@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from sqlalchemy import desc
 
 from email_agent import app as agent_app
-from db.session import get_session
+from db.session import get_session, init_db
 from db.models import EmailMemory, BehaviorLog, RetryQueue
 
 app = FastAPI(title="Email Agent API")
@@ -55,6 +55,11 @@ class LogSchema(BaseModel):
 
 # Global state
 START_TIME = time.time()
+
+
+@app.on_event("startup")
+def startup_event():
+    init_db()
 
 @app.get("/control/status")
 def get_status():

@@ -23,6 +23,8 @@ def fetch_emails(creds, max_results=None, page_size=500):
 
         results = service.users().messages().list(
             userId="me",
+            labelIds=["INBOX"],
+            q="-from:me -in:drafts",
             maxResults=batch_size,
             pageToken=page_token,
         ).execute()
