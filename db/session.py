@@ -79,10 +79,26 @@ def _ensure_columns() -> None:
     Input: None
     Output: None
     """
-    if engine.dialect.name != "sqlite":
-        return
-
     with engine.begin() as conn:
+        # Ensure password_hash column exists in users table
+        if engine.dialect.name == "mysql":
+            try:
+                result = conn.execute(text(f"SHOW COLUMNS FROM users WHERE Field = 'password_hash'"))
+                if not result.fetchone():
+                    conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT ''"))
+                    print("Added password_hash column to users table")
+            except Exception as e:
+                print(f"Could not check/add password_hash: {e}")
+        
+        if engine.dialect.name != "sqlite":
+            return
+
+        rows = conn.execute(text("PRAGMA table_info(users)")).fetchall()
+        existing_cols = {row[1] for row in rows}
+        if "password_hash" not in existing_cols:
+            conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255) NOT NULL DEFAULT ''"))
+            print("Added password_hash column to users table")
+
         rows = conn.execute(text("PRAGMA table_info(email_memory)")).fetchall()
         existing = {row[1] for row in rows}
         desired = {
