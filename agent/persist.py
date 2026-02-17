@@ -31,12 +31,15 @@ def _normalize_timestamp(value: Any) -> str:
     return str(value)
 
 
-def persist_observation(observed: dict[str, Any]) -> EmailMemory:
+def persist_observation(observed: dict[str, Any], user_id: int = None) -> EmailMemory:
     init_db()
     session = get_session()
     try:
         email_id = observed.get("email_id") or observed.get("id") or ""
-        record = session.query(EmailMemory).filter_by(email_id=email_id).first()
+        query = session.query(EmailMemory).filter_by(email_id=email_id)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        record = query.first()
 
         sender = observed.get("from") or observed.get("sender") or ""
         _, addr = parseaddr(sender)
@@ -55,6 +58,7 @@ def persist_observation(observed: dict[str, Any]) -> EmailMemory:
             session.add(
                 EmailMemory(
                     email_id=email_id,
+                    user_id=user_id,
                     sender=sender,
                     sender_type="unknown",
                     promo=False,

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Agent - Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .auth-container {
+            width: 100%;
+            max-width: 450px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .auth-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .auth-header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .auth-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .auth-form {
+            padding: 40px 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .toggle-form {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .toggle-form a {
+            color: #667eea;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .toggle-form a:hover {
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            background-color: #fee;
+            color: #c33;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .success {
+            background-color: #efe;
+            color: #3c3;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>📧 Email Agent</h1>
+            <p>Intelligent Email Automation</p>
+        </div>
+
+        <!-- Login Form -->
+        <form class="auth-form" id="loginForm">
+            <div id="loginError" class="error hidden"></div>
+
+            <div class="form-group">
+                <label for="loginEmail">Email Address</label>
+                <input type="email" id="loginEmail" name="email" required placeholder="your@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="loginPassword">Password</label>
+                <input type="password" id="loginPassword" name="password" required placeholder="••••••••">
+            </div>
+
+            <button type="submit" class="submit-btn" id="loginBtn">Login</button>
+
+            <div class="toggle-form">
+                Don't have an account? <a onclick="toggleForms()">Sign up</a>
+            </div>
+        </form>
+
+        <!-- Signup Form -->
+        <form class="auth-form hidden" id="signupForm">
+            <div id="signupError" class="error hidden"></div>
+            <div id="signupSuccess" class="success hidden"></div>
+
+            <div class="form-group">
+                <label for="signupEmail">Email Address</label>
+                <input type="email" id="signupEmail" name="email" required placeholder="your@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="signupPassword">Password</label>
+                <input type="password" id="signupPassword" name="password" required placeholder="••••••••">
+            </div>
+
+            <div class="form-group">
+                <label for="gmailEmail">Gmail Account Email</label>
+                <input type="email" id="gmailEmail" name="gmail_email" required placeholder="your.gmail@gmail.com">
+            </div>
+
+            <button type="submit" class="submit-btn" id="signupBtn">Create Account</button>
+
+            <div class="toggle-form">
+                Already have an account? <a onclick="toggleForms()">Login</a>
+            </div>
+        </form>
+
+        <!-- Credentials Upload Form -->
+        <form class="auth-form hidden" id="credentialsForm">
+            <div id="credentialsError" class="error hidden"></div>
+            <div id="credentialsSuccess" class="success hidden"></div>
+
+            <h2 style="margin-bottom: 20px; font-size: 18px;">Upload Gmail Credentials</h2>
+
+            <p style="color: #666; font-size: 13px; margin-bottom: 15px;">
+                Paste the contents of your <code>credentials.json</code> file that you downloaded from Google Cloud Console.
+            </p>
+
+            <div class="form-group">
+                <label for="credentialsJson">credentials.json Content</label>
+                <textarea id="credentialsJson" name="credentials_json" required 
+                    placeholder='{"type": "service_account", ...}'
+                    style="width: 100%; min-height: 200px; padding: 12px 15px; border: 1px solid #ddd; border-radius: 6px; font-family: monospace; font-size: 11px;"></textarea>
+            </div>
+
+            <button type="submit" class="submit-btn" id="uploadBtn" style="margin-top: 20px;">Upload Credentials</button>
+        </form>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8000';
+        let currentToken = null;
+        let currentUserId = null;
+
+        function toggleForms() {
+            document.getElementById('loginForm').classList.toggle('hidden');
+            document.getElementById('signupForm').classList.toggle('hidden');
+            clearMessages();
+        }
+
+        function clearMessages() {
+            document.getElementById('loginError').classList.add('hidden');
+            document.getElementById('signupError').classList.add('hidden');
+            document.getElementById('signupSuccess').classList.add('hidden');
+            document.getElementById('credentialsError').classList.add('hidden');
+            document.getElementById('credentialsSuccess').classList.add('hidden');
+        }
+
+        function showMessage(elementId, message, isError = true) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.classList.remove('hidden');
+        }
+
+        function setLoading(buttonId, isLoading) {
+            const btn = document.getElementById(buttonId);
+            if (isLoading) {
+                btn.classList.add('loading');
+                btn.innerHTML = '<span class="spinner"></span>' + btn.textContent.split('\n')[0];
+                btn.disabled = true;
+            } else {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading('loginBtn', true);
+            clearMessages();
+
+            try {
+                const response = await fetch(`${BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('loginEmail').value,
+                        password: document.getElementById('loginPassword').value,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage('loginError', data.detail || 'Login failed');
+                    setLoading('loginBtn', false);
+                    return;
+                }
+
+                currentToken = data.token;
+                currentUserId = data.user_id;
+                localStorage.setItem('token', currentToken);
+                localStorage.setItem('userId', currentUserId);
+
+                // Redirect to dashboard
+                window.location.href = '/dashboard.html';
+            } catch (error) {
+                showMessage('loginError', 'Network error: ' + error.message);
+                setLoading('loginBtn', false);
+            }
+        });
+
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading('signupBtn', true);
+            clearMessages();
+
+            try {
+                const response = await fetch(`${BASE_URL}/auth/signup`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('signupEmail').value,
+                        password: document.getElementById('signupPassword').value,
+                        gmail_email: document.getElementById('gmailEmail').value,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage('signupError', data.detail || 'Signup failed', true);
+                    setLoading('signupBtn', false);
+                    return;
+                }
+
+                currentToken = data.token;
+                currentUserId = data.user_id;
+                localStorage.setItem('token', currentToken);
+                localStorage.setItem('userId', currentUserId);
+
+                showMessage('signupSuccess', data.message || 'Account created! Redirecting...', false);
+                
+                // Show credentials form
+                setTimeout(() => {
+                    document.getElementById('signupForm').classList.add('hidden');
+                    document.getElementById('credentialsForm').classList.remove('hidden');
+                }, 1500);
+            } catch (error) {
+                showMessage('signupError', 'Network error: ' + error.message);
+                setLoading('signupBtn', false);
+            }
+        });
+
+        // Credentials form submission
+        document.getElementById('credentialsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            setLoading('uploadBtn', true);
+            clearMessages();
+
+            try {
+                const credentialsJson = document.getElementById('credentialsJson').value.trim();
+                
+                if (!credentialsJson) {
+                    showMessage('credentialsError', 'Please paste credentials.json content', true);
+                    setLoading('uploadBtn', false);
+                    return;
+                }
+
+                const response = await fetch(`${BASE_URL}/auth/upload-credentials`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${currentToken}`,
+                    },
+                    body: JSON.stringify({
+                        credentials_json: credentialsJson,
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    showMessage('credentialsError', data.detail || 'Upload failed', true);
+                    setLoading('uploadBtn', false);
+                    return;
+                }
+
+                showMessage('credentialsSuccess', 'Credentials uploaded successfully! Redirecting...', false);
+                
+                setTimeout(() => {
+                    window.location.href = '/dashboard.html';
+                }, 1500);
+            } catch (error) {
+                showMessage('credentialsError', 'Network error: ' + error.message, true);
+                setLoading('uploadBtn', false);
+            }
+        });
+
+        // Check if user is already logged in
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                window.location.href = '/dashboard.html';
+            }
+        });
+    </script>
+</body>
+</html>

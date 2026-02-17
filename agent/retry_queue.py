@@ -38,7 +38,7 @@ def _next_retry_timestamp(attempts: int) -> str:
     return _iso(_now() + timedelta(seconds=delay))
 
 
-def enqueue_retry(observed: dict[str, Any], operation: str, error: str = "") -> None:
+def enqueue_retry(observed: dict[str, Any], operation: str, error: str = "", user_id: int = None) -> None:
     init_db()
     session = get_session()
     now = _iso(_now())
@@ -47,12 +47,10 @@ def enqueue_retry(observed: dict[str, Any], operation: str, error: str = "") -> 
         if not email_id:
             return
 
-        pending = (
-            session.query(RetryQueue)
-            .filter_by(email_id=email_id, operation=operation, status="pending")
-            .order_by(RetryQueue.id.desc())
-            .first()
-        )
+        query = session.query(RetryQueue).filter_by(email_id=email_id, operation=operation, status="pending")
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        pending = query.order_by(RetryQueue.id.desc()).first()
         if pending:
             pending.payload = json.dumps({"observed": observed}, ensure_ascii=True)
             pending.last_error = error or pending.last_error
@@ -64,6 +62,7 @@ def enqueue_retry(observed: dict[str, Any], operation: str, error: str = "") -> 
         session.add(
             RetryQueue(
                 email_id=email_id,
+                user_id=user_id,
                 operation=operation or "analyze_and_execute",
                 payload=json.dumps({"observed": observed}, ensure_ascii=True),
                 status="pending",
@@ -99,27 +98,25 @@ def _schedule_retry(session, row: RetryQueue, error: str) -> None:
     session.commit()
 
 
-def _run_analyze_and_execute(observed: dict[str, Any], service: Any = None, cal_service: Any = None) -> tuple[bool, str]:
+def _run_analyze_and_execute(observed: dict[str, Any], service: Any = None, cal_service: Any = None, user_id: int = None) -> tuple[bool, str]:
     analysis, analysis_ok = analyze_email_with_status(observed)
     if not analysis_ok:
         return False, str(analysis.get("Reasoning", "analysis failed"))
-    _, action_ok, action_error = execute_next_action(observed, analysis, service=service, cal_service=cal_service)
+    _, action_ok, action_error = execute_next_action(observed, analysis, service=service, cal_service=cal_service, user_id=user_id)
     return action_ok, action_error
 
 
-def process_retry_queue(service: Any = None, cal_service: Any = None, limit: int | None = None) -> int:
+def process_retry_queue(service: Any = None, cal_service: Any = None, limit: int | None = None, user_id: int = None) -> int:
     init_db()
     session = get_session()
     processed = 0
     now = _now()
     batch_limit = max(1, int(limit or _RETRY_BATCH_SIZE))
     try:
-        rows = (
-            session.query(RetryQueue)
-            .filter_by(status="pending")
-            .order_by(RetryQueue.id.asc())
-            .all()
-        )
+        query = session.query(RetryQueue).filter_by(status="pending")
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        rows = query.order_by(RetryQueue.id.asc()).all()
         for row in rows:
             if processed >= batch_limit:
                 break
@@ -140,7 +137,7 @@ def process_retry_queue(service: Any = None, cal_service: Any = None, limit: int
 
             try:
                 if row.operation in {"analyze_and_execute", "analyze_and_draft"}:
-                    ok, error = _run_analyze_and_execute(observed, service=service, cal_service=cal_service)
+                    ok, error = _run_analyze_and_execute(observed, service=service, cal_service=cal_service, user_id=row.user_id)
                 else:
                     ok, error = False, f"unsupported retry operation: {row.operation}"
             except Exception as exc:

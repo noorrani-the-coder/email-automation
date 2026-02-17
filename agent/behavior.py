@@ -47,6 +47,7 @@ def log_behavior_event(
     final_decision_score: float,
     user_final_action: str = "",
     user_opened: bool | None = None,
+    user_id: int = None,
 ) -> None:
     """
     Logs a behavior event to the database.
@@ -60,7 +61,10 @@ def log_behavior_event(
     session = get_session()
     now = _now_iso()
     try:
-        row = session.query(BehaviorLog).filter_by(email_id=email_id).first()
+        query = session.query(BehaviorLog).filter_by(email_id=email_id)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        row = query.first()
         clean_final = user_final_action.strip().lower()
         if clean_final not in FINAL_ACTIONS:
             clean_final = ""
@@ -86,6 +90,7 @@ def log_behavior_event(
         session.add(
             BehaviorLog(
                 email_id=email_id,
+                user_id=user_id,
                 intent=(intent or "").strip(),
                 sender_domain=(sender_domain or "").strip().lower(),
                 requires_reply=bool(requires_reply) if isinstance(requires_reply, bool) else False,

@@ -14,9 +14,9 @@ from agent.memory import store_email
 from agent.actions import execute_next_action
 from agent.behavior import log_behavior_event, sender_domain_from_observed
 from agent.retry_queue import enqueue_retry, process_retry_queue
-from db.models import EmailMemory
+from db.models import EmailMemory, UserCredentials, User
 from db.session import get_session, init_db
-from gmail.auth import get_credentials
+from gmail.auth import get_credentials_for_user
 from googleapiclient.discovery import build
 
 
@@ -28,44 +28,54 @@ import time
 should_run = False
 is_running = False
 
-def run_single_cycle(service, cal_service, session):
+def run_single_cycle(service, cal_service, session, user_id, creds):
     """
-    Runs a single cycle of the email agent loop.
+    Runs a single cycle of the email agent loop for a specific user.
     """
     try:
-        process_retry_queue(service=service, cal_service=cal_service)
-        emails = ingest_emails(max_results=20)
+        process_retry_queue(service=service, cal_service=cal_service, user_id=user_id)
+        emails = ingest_emails(creds, max_results=20)
         
         for e in emails:
             if not should_run:
                 break
 
             email_id = e.get("id")
-            if email_id and session.query(EmailMemory).filter_by(email_id=email_id).first():
+            if email_id and session.query(EmailMemory).filter_by(email_id=email_id, user_id=user_id).first():
                 continue
 
-            print(f"New email detected: {email_id}")
+            print(f"New email detected for user {user_id}: {email_id}")
             observed = observe_email(service, e["id"])
-            persist_observation(observed)
+            print(f"Email body: {observed.get('content', 'No content')}")
+            persist_observation(observed, user_id=user_id)
             try:
                 store_email(observed.get("content", ""))
             except Exception:
                 pass
 
             analysis, analysis_ok = analyze_email_with_status(observed)
-            action_result = {
-                "Action": "escalate_human_review",
-                "ActionReason": "Analysis failed and was queued for retry.",
-                "Draft": {"DraftReply": "", "Reasoning": "No draft generated.", "Confidence": 0.0},
-            }
-
+            print(f"Analysis OK: {analysis_ok}")
+            print(f"Analysis result: {analysis}")
+            
             if not analysis_ok:
-                action_result, _, _ = execute_next_action(observed, analysis, service=service, cal_service=cal_service)
-                enqueue_retry(observed, operation="analyze_and_execute", error=str(analysis.get("Reasoning", "")))
+                # Analysis failed, queue for retry
+                print(f"Analysis failed, queuing for retry. Reason: {analysis.get('Reasoning', '')}")
+                enqueue_retry(observed, operation="analyze_and_execute", error=str(analysis.get("Reasoning", "")), user_id=user_id)
+                action_result = {
+                    "Action": "queued_for_retry",
+                    "ActionReason": "Analysis failed and was queued for retry.",
+                    "Draft": {"DraftReply": "", "Reasoning": "No draft generated.", "Confidence": 0.0},
+                }
             else:
-                action_result, action_ok, action_error = execute_next_action(observed, analysis, service=service, cal_service=cal_service)
+                # Analysis succeeded, try to execute the action
+                action_result, action_ok, action_error = execute_next_action(observed, analysis, service=service, cal_service=cal_service, user_id=user_id)
+                print(f"Action execution OK: {action_ok}")
+                print(f"Action result: {action_result}")
                 if not action_ok:
-                    enqueue_retry(observed, operation="analyze_and_execute", error=action_error)
+                    print(f"Action failed, queuing for retry. Error: {action_error}")
+                    enqueue_retry(observed, operation="analyze_and_execute", error=action_error, user_id=user_id)
+                else:
+                    print(f"Action executed successfully: {action_result.get('Action')}")
 
             log_behavior_event(
                 email_id=observed.get("email_id") or observed.get("id") or email_id or "",
@@ -78,9 +88,10 @@ def run_single_cycle(service, cal_service, session):
                 behavior_match_score=float(action_result.get("ImportanceScore", 0.0) or 0.0),
                 final_decision_score=float(action_result.get("FinalDecisionScore", 0.0) or 0.0),
                 user_final_action="",
+                user_id=user_id,
             )
 
-            process_retry_queue(service=service, cal_service=cal_service, limit=1)
+            process_retry_queue(service=service, cal_service=cal_service, limit=1, user_id=user_id)
 
             output = {
                 "EmailId": observed.get("email_id") or observed.get("id") or email_id or "",
@@ -94,30 +105,62 @@ def run_single_cycle(service, cal_service, session):
             yield output
 
     except Exception as e:
-        print(f"Error in agent loop: {e}")
+        print(f"Error in agent loop for user {user_id}: {e}")
 
 def run_agent_loop():
     """
-    Main loop for the email agent. Monitors inbox, analyzes emails, and takes actions.
+    Main loop for the email agent. Monitors inboxes for all users with stored credentials,
+    analyzes emails, and takes actions.
     """
     global should_run, is_running
     
-    creds = get_credentials()
-    service = build("gmail", "v1", credentials=creds)
-    cal_service = build("calendar", "v3", credentials=creds)
     init_db()
-
     print("Agent background task started.")
     is_running = True
     
     while should_run:
-        session = get_session()
         try:
-             # Consume generator to execute cycle
-            for _ in run_single_cycle(service, cal_service, session):
-                pass
-        finally:
-            session.close()
+            # Get all users with stored credentials
+            session = get_session()
+            try:
+                users_with_creds = (
+                    session.query(User.id, User.email)
+                    .join(UserCredentials, User.id == UserCredentials.user_id)
+                    .all()
+                )
+            finally:
+                session.close()
+            
+            # Process each user's emails
+            for user_id, user_email in users_with_creds:
+                if not should_run:
+                    break
+                
+                try:
+                    # Get credentials for this user from database
+                    creds = get_credentials_for_user(user_id)
+                    if not creds:
+                        print(f"Could not load credentials for user {user_id} ({user_email}), skipping...")
+                        continue
+                    
+                    # Build services
+                    service = build("gmail", "v1", credentials=creds)
+                    cal_service = build("calendar", "v3", credentials=creds)
+                    
+                    # Process this user's emails
+                    session = get_session()
+                    try:
+                        for _ in run_single_cycle(service, cal_service, session, user_id, creds):
+                            pass
+                    finally:
+                        session.close()
+                        
+                except Exception as e:
+                    print(f"Error processing user {user_id}: {e}")
+                    continue
+        
+        except Exception as e:
+            print(f"Error in agent main loop: {e}")
         
         # Sleep with check
         for _ in range(30):

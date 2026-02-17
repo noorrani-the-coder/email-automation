@@ -61,11 +61,11 @@ def _safe_confidence(value: Any) -> float:
         return 0.0
 
 
-def _enqueue_task(observed: dict[str, Any], reason: str) -> None:
+def _enqueue_task(observed: dict[str, Any], reason: str, user_id: int = None) -> None:
     """
     Enqueues a task in the database based on the observed email and reason.
 
-    Input: observed={"email_id": "123", "subject": "Test"}, reason="Follow up"
+    Input: observed={"email_id": "123", "subject": "Test"}, reason="Follow up", user_id=1
     Output: None
     """
     init_db()
@@ -81,7 +81,10 @@ def _enqueue_task(observed: dict[str, Any], reason: str) -> None:
         if body:
             description = f"{description}\n\nEmail excerpt:\n{body[:1500]}"
 
-        row = session.query(TaskQueue).filter_by(email_id=email_id).first()
+        query = session.query(TaskQueue).filter_by(email_id=email_id)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+        row = query.first()
         if row:
             row.title = title
             row.description = description
@@ -93,6 +96,7 @@ def _enqueue_task(observed: dict[str, Any], reason: str) -> None:
             session.add(
                 TaskQueue(
                     email_id=email_id,
+                    user_id=user_id,
                     title=title,
                     description=description,
                     status="open",
@@ -123,11 +127,11 @@ def _has_existing_reply_draft(observed: dict[str, Any]) -> bool:
     finally:
         session.close()
 
-def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], service: Any = None, cal_service: Any = None) -> tuple[dict[str, Any], bool, str]:
+def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], service: Any = None, cal_service: Any = None, user_id: int = None) -> tuple[dict[str, Any], bool, str]:
     """
     Executes the next action based on the analysis of the observed email.
 
-    Input: observed={...}, analysis={"NextAction": "draft_reply", ...}
+    Input: observed={...}, analysis={"NextAction": "draft_reply", ...}, user_id=1
     Output: ({"Action": "draft_reply", ...}, True, "")
     """
     # ... (existing code) ...
@@ -235,7 +239,7 @@ def execute_next_action(observed: dict[str, Any], analysis: dict[str, Any], serv
         return result, True, ""
 
     if next_action == "create_task":
-        _enqueue_task(observed, persisted_reason)
+        _enqueue_task(observed, persisted_reason, user_id=user_id)
         store_action_state(observed, next_action, persisted_reason, task_status="open")
         return result, True, ""
 
