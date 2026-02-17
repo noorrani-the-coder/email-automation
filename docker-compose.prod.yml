@@ -29,7 +29,7 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('98.88.40.128', timeout=5).read()"
+        - "import urllib.request; urllib.request.urlopen('http://98.88.40.128:8000', timeout=5).read()"
       interval: 30s
       timeout: 10s
       retries: 3
