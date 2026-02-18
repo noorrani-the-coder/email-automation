@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 import threading
@@ -5,6 +6,11 @@ import time
 from typing import List, Optional
 from datetime import datetime, timezone
 import json
+
+from dotenv import load_dotenv
+
+# Load .env from project root
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 # Add project root to sys.path
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -124,6 +130,16 @@ def get_current_user(authorization: Optional[str] = Header(None)):
 @app.on_event("startup")
 def startup_event():
     init_db()
+
+
+# ============== CONFIG ENDPOINT ==============
+
+@app.get("/config")
+def get_config():
+    """Return frontend configuration (unauthenticated)."""
+    return {
+        "api_base_url": os.environ.get("API_BASE_URL", "http://localhost:8000"),
+    }
 
 
 # ============== AUTHENTICATION ENDPOINTS ==============
